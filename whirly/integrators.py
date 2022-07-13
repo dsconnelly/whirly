@@ -1,3 +1,5 @@
+import numpy as np
+
 class IFRK4Integrator:
     """
     Implementation of fourth-order Runge-Kutta integrating factor time stepping.
@@ -15,8 +17,9 @@ class IFRK4Integrator:
         ----------
         tau : float
             The time step. Corresponds to h in Yang et al. (2021).
-        L : np.ndarray
-            The array of scalars representing the linear part of the ODE system.
+        L : float or np.ndarray
+            The scalar or array of scalars representing the linear part of the
+            ODE system.
         nonlinear : callable
             Function returning the nonlinear part of the ODE system. Corresponds
             to N in Yang et al. (2021).
