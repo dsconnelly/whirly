@@ -26,7 +26,7 @@ def test_real():
 def test_m_must_be_odd():
     hats = np.random.rand(100, 100)
     with pytest.raises(ValueError):
-        _ = FourierField(hats)
+        _ = FourierField(hats, 1)
 
 def test_multiply_fields():
     a = FourierField.from_func(make_func(), 101)

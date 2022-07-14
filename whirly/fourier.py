@@ -18,9 +18,9 @@ class FourierField:
     # Prevent numpy from broadcasting instead of using arithmetic defined here.
     __array_ufunc__ = None
 
-    def __init__(self, hats):
+    def __init__(self, hats, p):
         """
-        Initializes a FourierField given an array of Fourier coefficients.
+        Initializes a FourierField given Fourier coefficients and a domain size.
 
         Note that in general FourierField objects should be created using one of
         the class constructors defined below, which in turn call this method.
@@ -32,6 +32,8 @@ class FourierField:
         hats : np.ndarray
             Two-dimensional array of Fourier coefficients, in the order used by
             numpy FFT routines.
+        p : float
+            The length of a side of the domain.
 
         Raises
         ------
@@ -41,6 +43,8 @@ class FourierField:
         """
 
         self.hats = hats
+        self.p = p
+
         if self.m % 2 == 0:
             raise ValueError('grid size must be odd')
 
@@ -65,9 +69,13 @@ class FourierField:
         """
 
         if isinstance(other, (int, float, complex, np.ndarray)):
-            return type(self).from_data(self.real + other)
+            return type(self).from_data(self.real + other, self.p)
 
-        return type(self)(self.hats + other.hats)
+        return type(self)(self.hats + other.hats, self.p)
+
+    def __sub__(self, other):
+        """Subtraction is just negation followed by addition."""
+        return self + -other
 
     def __mul__(self, other):
         """
@@ -91,7 +99,7 @@ class FourierField:
         """
 
         if isinstance(other, (int, float, complex, np.ndarray)):
-            return type(self)(other * self.hats)
+            return type(self)(other * self.hats, self.p)
 
         m_aa = 3 * (self.m + 1) // 2
         if m_aa % 2 == 0:
@@ -99,7 +107,7 @@ class FourierField:
 
         data = self.resample(m_aa).real * other.resample(m_aa).real
 
-        return type(self).from_real(data).resample(self.m)
+        return type(self).from_real(data, self.p).resample(self.m)
 
     def __rmul__(self, other):
         """Makes FourierField multiplication is always commutative."""
@@ -152,7 +160,7 @@ class FourierField:
 
         hats = ((m / self.m) ** 2) * hats
 
-        return type(self)(hats)
+        return type(self)(hats, self.p)
 
     @classmethod
     def from_func(cls, func, m, p=1):
@@ -180,10 +188,10 @@ class FourierField:
         x, y = utils.make_grid(m, p)
         hats = utils.fft(func(x, y))
 
-        return cls(hats)
+        return cls(hats, p)
 
     @classmethod
-    def from_real(cls, real):
+    def from_real(cls, real, p=1):
         """
         Construct a FourierField from gridded real data on a square domain.
 
@@ -191,6 +199,9 @@ class FourierField:
         ----------
         real : np.ndarray
             Real-space function values on a square grid.
+        p : float, optional
+            The size of the square domain. Default is 1, in which case the
+            domain is the doubly-periodic unit square.
 
         Returns
         -------
@@ -199,4 +210,4 @@ class FourierField:
 
         """
 
-        return cls(utils.fft(real))
+        return cls(utils.fft(real), p)

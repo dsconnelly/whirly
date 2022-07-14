@@ -1,3 +1,5 @@
+import numpy as np
+
 from whirly.integrators import IFRK4Integrator
 from whirly.utils import make_wavenumbers
 
@@ -74,7 +76,7 @@ class PseudospectralSolver:
             output_tau = tau
 
         skip = round(output_tau / tau)
-        zeta = self.zeta_initial
+        zeta = zeta_initial
         outputs = [zeta]
 
         integrator = IFRK4Integrator(tau, self.L, self.nonlinear)
@@ -131,11 +133,11 @@ class NavierStokesSolver(PseudospectralSolver):
         Returns
         -------
         advection : whirly.fourier.FourierField
-            The nonlinear advection term -\vec{u} \cdot \nabla \zeta.
+            The nonlinear advection term -u dot grad(zeta).
 
         """
 
-        psi = self.inverse_laplacian(zeta)
+        psi = self.inverse_laplacian * zeta
         u = -1j * self.ell * psi
         v = 1j * self.k * psi
 
