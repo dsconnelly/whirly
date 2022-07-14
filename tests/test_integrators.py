@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from whirly.integrators import IFRK4Integrator
 

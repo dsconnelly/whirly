@@ -155,7 +155,7 @@ class FourierField:
         return type(self)(hats)
 
     @classmethod
-    def from_func(cls, func, m, L=1):
+    def from_func(cls, func, m, p=1):
         """
         Construct a FourierField from a real-valued function.
 
@@ -166,18 +166,18 @@ class FourierField:
             signature func(x, y), where x and y are numpy arrays.
         m : int
             The desired grid resolution.
-        L : float, optional
+        p : float, optional
             The size of the square domain. Default is 1, in which case the
             domain is the doubly-periodic unit square.
 
         Returns
         -------
         field : FourierField
-            Spectral representation of the function applied to [L, L].
+            Spectral representation of the function applied to [0, p]^2.
 
         """
 
-        x, y = utils.make_grid(m, L)
+        x, y = utils.make_grid(m, p)
         hats = utils.fft(func(x, y))
 
         return cls(hats)
