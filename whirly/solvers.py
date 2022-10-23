@@ -42,7 +42,7 @@ class PseudospectralSolver:
         self.m = m
         self.p = p
 
-    def solve(self, zeta_initial, T, output_tau=None):
+    def solve(self, q_initial, T, output_tau=None):
         """
         Solve a nonlinear PDE on a doubly-periodic square domain.
 
@@ -51,7 +51,7 @@ class PseudospectralSolver:
 
         Parameters
         ----------
-        zeta_initial : whirly.fourier.FourierField
+        q_initial : whirly.fourier.FourierField
             A FourierField representing the initial solution field.
         T : float
             The final time to solve until.
@@ -76,23 +76,35 @@ class PseudospectralSolver:
             output_tau = tau
 
         skip = round(output_tau / tau)
-        zeta = zeta_initial
-        outputs = [zeta]
+        q = q_initial
+        outputs = [q]
 
         integrator = IFRK4Integrator(tau, self.L, self.nonlinear)
         for i in range(1, n_steps + 1):
-            zeta = integrator.step(zeta)
+            q = integrator.step(q)
             if i % skip == 0:
-                outputs.append(zeta)
+                outputs.append(q)
 
         return outputs
 
-class NavierStokesSolver(PseudospectralSolver):
-    """PseudospectralSolver for two-dimensional Navier-Stokes."""
+class VorticitySolver(PseudospectralSolver):
+    """
+    Abstract PseudospectralSolver subclass for vorticity equations.
+
+    VorticitySolver subclasses assume that the solution field is a vorticity q
+    that can be inverted to find a streamfunction, and consequently to give the
+    advecting velocity. Subclasses should implement a make_operator method
+    returning an array such that in Fourier space operator * psi = q holds.
+
+    """
 
     def __init__(self, tau, m, p, Re):
         """
         Initializes a NavierStokesSolver.
+
+        This method calls the make_operator method defined by subclasses and
+        uses it to set the inverse_operator attribute of the object, which is
+        then used to invert the vorticity in the nonlinear method.
 
         Parameters
         ----------
@@ -110,38 +122,47 @@ class NavierStokesSolver(PseudospectralSolver):
         super().__init__(tau, m, p)
 
         self.k, self.ell = make_wavenumbers(self.m, self.p)
-        K_sq = (self.k ** 2) + (self.ell ** 2)
-        self.L = -(1 / Re) * K_sq
+        self.K_sq = (self.k ** 2) + (self.ell ** 2)
+        self.L = -(1 / Re) * self.K_sq
 
-        mask = K_sq != 0
-        self.inverse_laplacian = np.zeros_like(K_sq)
-        self.inverse_laplacian[mask] = -1 / K_sq[mask]
+        operator = self.make_operator()
+        mask = operator != 0
 
-    def nonlinear(self, zeta):
+        self.inverse_operator = np.zeros_like(operator)
+        self.inverse_operator[mask] = 1 / operator[mask]
+
+    def nonlinear(self, q):
         """
         Calculates the advection of vorticity.
 
-        First, the streamfunction is calculated by solving Laplace's equation,
-        and then u and v are found through spectral differentiation and used to
-        compute the (negative) advection term.
+        First, the streamfunction is calculated using the inverse_operator
+        attribute, and then u and v are found through spectral differentiation
+        and used to compute the (negative) advection term.
 
         Parameters
         ----------
-        zeta : whirly.fourier.FourierField
+        q : whirly.fourier.FourierField
             The current vorticity field.
 
         Returns
         -------
         advection : whirly.fourier.FourierField
-            The nonlinear advection term -u dot grad(zeta).
+            The nonlinear advection term -u dot grad(q).
 
         """
 
-        psi = self.inverse_laplacian * zeta
+        psi = self.inverse_operator * q
         u = -1j * self.ell * psi
         v = 1j * self.k * psi
 
-        zeta_x = 1j * self.k * zeta
-        zeta_y = 1j * self.ell * zeta
+        q_x = 1j * self.k * q
+        q_y = 1j * self.ell * q
 
-        return -(u * zeta_x + v * zeta_y)
+        return -(u * q_x + v * q_y)
+
+class NavierStokesSolver(VorticitySolver):
+    """PseudospectralSolver for two-dimensional Navier-Stokes."""
+
+    def make_operator(self):
+        """The vorticity is simply the Laplacian of the streamfunction."""
+        return -self.K_sq
